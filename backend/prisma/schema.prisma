@@ -8,26 +8,29 @@ datasource db {
 }
 
 model User {
-  id             String          @id @default(cuid())
-  email          String          @unique
-  password       String
-  name           String
-  role           Role            @default(CLIENT)
-  status         UserStatus      @default(PENDING)
-  emailVerified  Boolean         @default(false)
-  phone          String?
-  location       String?
-  company        String?
-  industry       String?
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  lastActiveAt   DateTime?
-  analytics      Analytics[]
-  chatbots       Chatbot[]
-  notifications  Notification[]
-  payments       Payment[]
-  subscriptions  Subscription[]
-  supportTickets SupportTicket[]
+  id                   String                @id @default(cuid())
+  username             String?               @unique
+  email                String                @unique
+  password             String
+  name                 String
+  role                 Role                  @default(CLIENT)
+  status               UserStatus            @default(PENDING)
+  emailVerified        Boolean               @default(false)
+  phone                String?
+  location             String?
+  company              String?
+  industry             String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  lastActiveAt         DateTime?
+  analytics            Analytics[]
+  chatbot              Chatbot?
+  notifications        Notification[]
+  payments             Payment[]
+  subscriptions        Subscription[]
+  supportTickets       SupportTicket[]
+  sentMessages         AdminClientMessage[]  @relation("SentMessages")
+  receivedMessages     AdminClientMessage[]  @relation("ReceivedMessages")
 
   @@map("users")
 }
@@ -66,27 +69,34 @@ model Subscription {
 }
 
 model Chatbot {
-  id                  String         @id @default(cuid())
-  userId              String
+  id                  String        @id @default(cuid())
+  userId              String        @unique
   name                String
   description         String?
-  status              ChatbotStatus  @default(ACTIVE)
+  status              ChatbotStatus @default(ACTIVE)
+  projectStatus       ProjectStatus @default(NOT_STARTED)
+  projectPhase        String?
+  projectProgress     Int           @default(0)
+  developmentPlanId   String?
+  initialPaymentPaid  Boolean       @default(false)
+  finalPaymentPaid    Boolean       @default(false)
+  finalPaymentDueDate DateTime?
   welcomeMessage      String?
   fallbackMessage     String?
-  responseDelay       Int            @default(2)
-  maxRetries          Int            @default(3)
-  aiModel             String         @default("gpt-3.5-turbo")
-  temperature         Float          @default(0.7)
-  maxTokens           Int            @default(150)
-  contextWindow       Int            @default(5)
-  chunkSize           Int            @default(1000)
-  overlap             Int            @default(200)
-  similarityThreshold Float          @default(0.7)
-  createdAt           DateTime       @default(now())
-  updatedAt           DateTime       @updatedAt
+  responseDelay       Int           @default(2)
+  maxRetries          Int           @default(3)
+  aiModel             String        @default("gpt-3.5-turbo")
+  temperature         Float         @default(0.7)
+  maxTokens           Int           @default(150)
+  contextWindow       Int           @default(5)
+  chunkSize           Int           @default(1000)
+  overlap             Int           @default(200)
+  similarityThreshold Float         @default(0.7)
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
   analytics           Analytics[]
   channels            Channel[]
-  user                User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user                User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("chatbots")
 }
@@ -121,7 +131,6 @@ model Customer {
 
   @@map("customers")
 }
-
 
 model WhatsAppMessage {
   id          Int       @id @default(autoincrement())
@@ -313,7 +322,6 @@ enum CustomerStatus {
   PENDING
 }
 
-
 enum DocumentStatus {
   PROCESSING
   PROCESSED
@@ -361,4 +369,79 @@ enum NotificationPriority {
   MEDIUM
   HIGH
   URGENT
+}
+
+model AdminClientMessage {
+  id         String          @id @default(cuid())
+  senderId   String
+  receiverId String
+  message    String          @db.Text
+  subject    String?
+  priority   MessagePriority @default(NORMAL)
+  isRead     Boolean         @default(false)
+  sender     User            @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiver   User            @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now())
+  updatedAt  DateTime        @updatedAt
+
+  @@map("admin_client_messages")
+}
+
+model Invoice {
+  id             String        @id @default(cuid())
+  invoiceNumber  String        @unique
+  userId         String
+  paymentId      String?       @unique
+  amount         Int
+  currency       String        @default("NPR")
+  status         InvoiceStatus @default(UNPAID)
+  description    String?
+  items          Json?
+  dueDate        DateTime?
+  paidDate       DateTime?
+  issueDate      DateTime      @default(now())
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("invoices")
+}
+
+model SystemSettings {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       Json
+  category    String
+  description String?
+  isPublic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+enum ProjectStatus {
+  NOT_STARTED
+  IN_PLANNING
+  IN_DEVELOPMENT
+  IN_TESTING
+  AWAITING_PAYMENT
+  COMPLETED
+  ON_HOLD
+  CANCELLED
+}
+
+enum MessagePriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum InvoiceStatus {
+  DRAFT
+  UNPAID
+  PAID
+  OVERDUE
+  CANCELLED
+  REFUNDED
 }

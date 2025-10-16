@@ -8,7 +8,10 @@ import {
   getPayments,
   getSystemSettings,
   getCustomerService,
-  sendMessage
+  sendMessage,
+  getAdminMessages,
+  markMessageAsRead,
+  getUnreadMessageCount
 } from '../controllers/adminController.js'
 import { auth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/roleCheck.js'
@@ -43,5 +46,11 @@ router.get('/system-settings', getSystemSettings)
 // Customer Service
 router.get('/customer-service', getCustomerService)
 router.post('/customer-service/send', sendMessage)
+
+// Admin Messaging
+router.get('/messages', getAdminMessages)
+router.post('/messages/send', sendMessage)
+router.put('/messages/:messageId/read', markMessageAsRead)
+router.get('/messages/unread-count', getUnreadMessageCount)
 
 export default router

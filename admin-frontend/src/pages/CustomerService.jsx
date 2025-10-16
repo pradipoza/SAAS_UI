@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import api from '../services/apiService'
 import toast from 'react-hot-toast'
+import AdminMessaging from '../components/AdminMessaging'
 import { 
   MessageSquare, 
   Search, 
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react'
 
 const CustomerService = () => {
+  const [activeTab, setActiveTab] = useState('messaging') // 'messaging' or 'tickets'
   const [selectedStatus, setSelectedStatus] = useState('')
   const [selectedPriority, setSelectedPriority] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
@@ -160,8 +162,39 @@ const CustomerService = () => {
         </button>
       </div>
 
-      {/* Statistics */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* Tab Navigation */}
+      <div className="border-b border-gray-200">
+        <nav className="-mb-px flex space-x-8">
+          <button
+            onClick={() => setActiveTab('messaging')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'messaging'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Direct Messaging
+          </button>
+          <button
+            onClick={() => setActiveTab('tickets')}
+            className={`py-2 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'tickets'
+                ? 'border-blue-500 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            Support Tickets
+          </button>
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      {activeTab === 'messaging' ? (
+        <AdminMessaging />
+      ) : (
+        <>
+          {/* Statistics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div className="card">
           <div className="flex items-center">
             <div className="p-2 bg-red-100 rounded-lg">
@@ -367,6 +400,8 @@ const CustomerService = () => {
           )}
         </div>
       </div>
+        </>
+      )}
     </div>
   )
 }

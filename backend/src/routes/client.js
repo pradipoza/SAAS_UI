@@ -11,8 +11,10 @@ import {
   getBotSettings,
   updateBotSettings,
   getNotifications,
-  getAdminMessages,
+  getClientMessages,
   sendMessageToAdmin,
+  markClientMessageAsRead,
+  getClientUnreadMessageCount,
   getPayments,
   initiatePayment,
   verifyPayment,
@@ -54,9 +56,11 @@ router.put('/bot-settings', updateBotSettings)
 // Notifications
 router.get('/notifications', getNotifications)
 
-// Admin Messages
-router.get('/admin-messages', getAdminMessages)
-router.post('/admin-messages/send', sendMessageToAdmin)
+// Client Messaging
+router.get('/messages', getClientMessages)
+router.post('/messages/send', sendMessageToAdmin)
+router.put('/messages/:messageId/read', markClientMessageAsRead)
+router.get('/messages/unread-count', getClientUnreadMessageCount)
 
 // Payments
 router.get('/payments', getPayments)

@@ -11,9 +11,10 @@ import {
   XCircle
 } from 'lucide-react'
 import apiService from '../services/apiService'
+import ClientMessaging from '../components/ClientMessaging'
 
 const Help = () => {
-  const [activeTab, setActiveTab] = useState('notifications')
+  const [activeTab, setActiveTab] = useState('messaging') // 'messaging', 'notifications', or 'tickets'
   const [newTicket, setNewTicket] = useState({
     subject: '',
     description: '',
@@ -140,8 +141,11 @@ const Help = () => {
       </div>
 
       {/* Tab Content */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        {activeTab === 'notifications' && (
+      {activeTab === 'messaging' ? (
+        <ClientMessaging />
+      ) : (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          {activeTab === 'notifications' && (
           <div className="p-6">
             <h3 className="text-lg font-medium text-gray-900 mb-6">Recent Notifications</h3>
             <div className="space-y-4">
@@ -272,8 +276,9 @@ const Help = () => {
               )}
             </div>
           </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }

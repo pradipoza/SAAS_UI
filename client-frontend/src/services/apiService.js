@@ -103,7 +103,16 @@ const apiService = {
   
   forgotPassword: (email) => api.post('/api/auth/forgot-password', { email }).then(response => response.data),
   
-  verifyEmail: (token) => api.post('/api/auth/verify-email', { token }).then(response => response.data)
+  verifyEmail: (token) => api.post('/api/auth/verify-email', { token }).then(response => response.data),
+
+  // Client Messaging methods
+  getMessages: (params = {}) => api.get('/api/client/messages', { params }).then(response => response.data),
+  
+  sendMessage: (data) => api.post('/api/client/messages/send', data).then(response => response.data),
+  
+  markMessageAsRead: (messageId) => api.put(`/api/client/messages/${messageId}/read`).then(response => response.data),
+  
+  getUnreadMessageCount: () => api.get('/api/client/messages/unread-count').then(response => response.data)
 }
 
 export default apiService

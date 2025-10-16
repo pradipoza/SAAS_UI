@@ -992,30 +992,6 @@ export const getAdminMessages = async (req, res) => {
   }
 }
 
-// Client Send Message to Admin Controller
-export const sendMessageToAdmin = async (req, res) => {
-  try {
-    const userId = req.user.userId
-    const { message, priority = 'normal' } = req.body
-
-    const adminMessage = await prisma.adminClientMessage.create({
-      data: {
-        userId,
-        message,
-        priority,
-        sender: 'client'
-      }
-    })
-
-    res.json({
-      message: 'Message sent to admin successfully',
-      messageId: adminMessage.id
-    })
-  } catch (error) {
-    console.error('Send message to admin error:', error)
-    res.status(500).json({ error: 'Failed to send message to admin' })
-  }
-}
 
 // Client Payments Controller
 export const getPayments = async (req, res) => {
@@ -1155,6 +1131,159 @@ export const getHelp = async (req, res) => {
   } catch (error) {
     console.error('Help error:', error)
     res.status(500).json({ error: 'Failed to fetch help data' })
+  }
+}
+
+// Client Messaging Controllers
+export const getClientMessages = async (req, res) => {
+  try {
+    const clientId = req.user.userId
+    const { page = 1, limit = 20 } = req.query
+
+    const messages = await prisma.adminClientMessage.findMany({
+      where: {
+        OR: [
+          { senderId: clientId },
+          { receiverId: clientId }
+        ]
+      },
+      include: {
+        sender: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true
+          }
+        },
+        receiver: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true
+          }
+        }
+      },
+      orderBy: { createdAt: 'desc' },
+      skip: (page - 1) * limit,
+      take: parseInt(limit)
+    })
+
+    const total = await prisma.adminClientMessage.count({
+      where: {
+        OR: [
+          { senderId: clientId },
+          { receiverId: clientId }
+        ]
+      }
+    })
+
+    res.json({
+      messages,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    })
+  } catch (error) {
+    console.error('Get client messages error:', error)
+    res.status(500).json({ error: 'Failed to fetch messages' })
+  }
+}
+
+export const sendMessageToAdmin = async (req, res) => {
+  try {
+    const { message, subject, priority = 'NORMAL' } = req.body
+    const clientId = req.user.userId
+
+    // Get admin user
+    const admin = await prisma.user.findFirst({
+      where: { role: 'ADMIN' }
+    })
+
+    if (!admin) {
+      return res.status(404).json({ error: 'Admin not found' })
+    }
+
+    // Create message record
+    const newMessage = await prisma.adminClientMessage.create({
+      data: {
+        senderId: clientId,
+        receiverId: admin.id,
+        message,
+        subject,
+        priority
+      },
+      include: {
+        receiver: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true
+          }
+        }
+      }
+    })
+
+    // Create notification for admin
+    await prisma.notification.create({
+      data: {
+        userId: admin.id,
+        title: 'New Message from Client',
+        message: subject || 'You have a new message from a client',
+        type: 'SUPPORT',
+        priority: priority === 'URGENT' ? 'URGENT' : 'MEDIUM'
+      }
+    })
+
+    res.json({ success: true, message: newMessage })
+  } catch (error) {
+    console.error('Send message to admin error:', error)
+    res.status(500).json({ error: 'Failed to send message' })
+  }
+}
+
+export const markClientMessageAsRead = async (req, res) => {
+  try {
+    const { messageId } = req.params
+    const clientId = req.user.userId
+
+    const message = await prisma.adminClientMessage.updateMany({
+      where: {
+        id: messageId,
+        receiverId: clientId
+      },
+      data: {
+        isRead: true
+      }
+    })
+
+    res.json({ success: true, updated: message.count })
+  } catch (error) {
+    console.error('Mark client message as read error:', error)
+    res.status(500).json({ error: 'Failed to mark message as read' })
+  }
+}
+
+export const getClientUnreadMessageCount = async (req, res) => {
+  try {
+    const clientId = req.user.userId
+
+    const unreadCount = await prisma.adminClientMessage.count({
+      where: {
+        receiverId: clientId,
+        isRead: false
+      }
+    })
+
+    res.json({ unreadCount })
+  } catch (error) {
+    console.error('Get client unread count error:', error)
+    res.status(500).json({ error: 'Failed to get unread count' })
   }
 }
 

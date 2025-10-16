@@ -19,10 +19,8 @@ const queryClient = new QueryClient()
 function ProtectedRoute({ children }) {
   const { user, loading } = useAuth()
   
-  console.log('ProtectedRoute: user:', user, 'loading:', loading)
-  
   if (loading) {
-    console.log('ProtectedRoute: Showing loading spinner')
+    console.log('⏳ ProtectedRoute: Loading authentication...')
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-primary-600"></div>
@@ -30,16 +28,20 @@ function ProtectedRoute({ children }) {
     )
   }
   
-  console.log('ProtectedRoute: User authenticated:', !!user)
-  return user ? <>{children}</> : <Navigate to="/login" />
+  if (!user) {
+    console.log('🔐 ProtectedRoute: No user, redirecting to login')
+    return <Navigate to="/login" />
+  }
+  
+  console.log('✅ ProtectedRoute: User authenticated, rendering page')
+  return <>{children}</>
 }
 
 function App() {
-  console.log('App component rendering')
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <Router>
+        <Router future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
           <div className="min-h-screen bg-gray-50">
             <Routes>
               <Route path="/login" element={<Login />} />
