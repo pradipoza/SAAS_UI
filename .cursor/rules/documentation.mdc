@@ -1,0 +1,7 @@
+---
+alwaysApply: true
+---
+do not create separate md files for each improvement , create a single .md file and add each improvement in that , 
+client_id means tenant_id ,  since the tenants  are our clients , so client and tanent are  same thing , we can say  client , tenenet and user all are same thing 
+there  is not bot here , one tenant can have single bot so just use bot  concept it  just increases complexity 
+ 
