@@ -58,10 +58,8 @@ const apiService = {
   // Specific API methods for different endpoints
   getDashboard: () => api.get('/api/client/dashboard').then(response => response.data),
   
-  getMessages: (params = {}) => {
-    const queryString = new URLSearchParams(params).toString()
-    return api.get(`/api/client/messages${queryString ? `?${queryString}` : ''}`).then(response => response.data)
-  },
+  // Channel messages (WhatsApp, Facebook, Instagram, etc.)
+  getMessages: (params = {}) => api.get('/api/client/conversations', { params }).then(response => response.data),
   
   getAnalytics: () => api.get('/api/client/analytics').then(response => response.data),
   
@@ -105,10 +103,10 @@ const apiService = {
   
   verifyEmail: (token) => api.post('/api/auth/verify-email', { token }).then(response => response.data),
 
-  // Client Messaging methods
-  getMessages: (params = {}) => api.get('/api/client/messages', { params }).then(response => response.data),
+  // Client-Admin Messaging methods (for support/help messages)
+  getAdminMessages: (params = {}) => api.get('/api/client/messages', { params }).then(response => response.data),
   
-  sendMessage: (data) => api.post('/api/client/messages/send', data).then(response => response.data),
+  sendMessageToAdmin: (data) => api.post('/api/client/messages/send', data).then(response => response.data),
   
   markMessageAsRead: (messageId) => api.put(`/api/client/messages/${messageId}/read`).then(response => response.data),
   

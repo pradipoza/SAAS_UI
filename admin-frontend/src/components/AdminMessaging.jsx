@@ -22,10 +22,15 @@ const AdminMessaging = () => {
   const loadMessages = async () => {
     try {
       setLoading(true)
+      console.log('🔍 AdminMessaging: Loading messages...')
       const response = await adminMessaging.getMessages()
-      setMessages(response.messages || [])
+      console.log('📦 AdminMessaging: Raw response:', response)
+      console.log('📦 AdminMessaging: Response data:', response.data)
+      console.log('📦 AdminMessaging: Messages array:', response.data.messages)
+      setMessages(response.data.messages || [])
+      console.log('✅ AdminMessaging: Messages set to state:', response.data.messages?.length || 0, 'messages')
     } catch (error) {
-      console.error('Failed to load messages:', error)
+      console.error('❌ AdminMessaging: Failed to load messages:', error)
     } finally {
       setLoading(false)
     }
@@ -34,7 +39,7 @@ const AdminMessaging = () => {
   const loadUnreadCount = async () => {
     try {
       const response = await adminMessaging.getUnreadCount()
-      setUnreadCount(response.unreadCount || 0)
+      setUnreadCount(response.data.unreadCount || 0)
     } catch (error) {
       console.error('Failed to load unread count:', error)
     }

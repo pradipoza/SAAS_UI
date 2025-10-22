@@ -291,44 +291,45 @@ const CustomerService = () => {
         {/* Conversations List */}
         <div className="lg:col-span-1">
           <div className="card">
-            <h3 className="text-lg font-semibold text-gray-900 mb-4">Conversations</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-4">Support Tickets</h3>
             <div className="space-y-3">
-              {(conversations?.messages || []).map((conversation) => (
+              {(conversations?.tickets || []).map((ticket) => (
                 <div
-                  key={conversation.id}
-                  onClick={() => setSelectedConversation(conversation)}
+                  key={ticket.id}
+                  onClick={() => setSelectedConversation(ticket)}
                   className={`p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition-colors ${
-                    selectedConversation?.id === conversation.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
+                    selectedConversation?.id === ticket.id ? 'border-primary-500 bg-primary-50' : 'border-gray-200'
                   }`}
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center space-x-2">
                       <div className="h-8 w-8 rounded-full bg-gray-300 flex items-center justify-center">
                         <span className="text-sm font-medium text-gray-700">
-                          {conversation.senderName.charAt(0).toUpperCase()}
+                          {ticket.user?.name?.charAt(0).toUpperCase() || 'U'}
                         </span>
                       </div>
                       <div>
-                        <p className="text-sm font-medium text-gray-900">{conversation.senderName}</p>
-                        <p className="text-xs text-gray-500">{conversation.senderEmail}</p>
+                        <p className="text-sm font-medium text-gray-900">{ticket.user?.name || 'Unknown User'}</p>
+                        <p className="text-xs text-gray-500">{ticket.user?.email || ''}</p>
                       </div>
                     </div>
                     <div className="flex items-center space-x-2">
-                      {getStatusIcon(conversation.status)}
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(conversation.status)}`}>
-                        {conversation.status.replace('_', ' ')}
+                      {getStatusIcon(ticket.status)}
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(ticket.status)}`}>
+                        {ticket.status.replace('_', ' ')}
                       </span>
                     </div>
                   </div>
                   
-                  <p className="text-sm text-gray-600 mb-2">{conversation.message}</p>
+                  <h4 className="text-sm font-medium text-gray-900 mb-1">{ticket.subject}</h4>
+                  <p className="text-sm text-gray-600 mb-2 line-clamp-2">{ticket.description}</p>
                   
                   <div className="flex items-center justify-between">
                     <span className="text-xs text-gray-500">
-                      {new Date(conversation.createdAt).toLocaleDateString()}
+                      {new Date(ticket.createdAt).toLocaleDateString()}
                     </span>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(conversation.priority)}`}>
-                      {conversation.priority}
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getPriorityColor(ticket.priority)}`}>
+                      {ticket.priority}
                     </span>
                   </div>
                 </div>
@@ -337,14 +338,14 @@ const CustomerService = () => {
           </div>
         </div>
 
-        {/* Conversation Details */}
+        {/* Ticket Details */}
         <div className="lg:col-span-2">
           {selectedConversation ? (
             <div className="card">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900">{selectedConversation.subject}</h3>
-                  <p className="text-sm text-gray-600">with {selectedConversation.senderName}</p>
+                  <p className="text-sm text-gray-600">from {selectedConversation.user?.name || 'Unknown User'} ({selectedConversation.user?.email || ''})</p>
                 </div>
                 <div className="flex items-center space-x-2">
                   <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(selectedConversation.status)}`}>
@@ -356,45 +357,39 @@ const CustomerService = () => {
                 </div>
               </div>
 
-              {/* Messages */}
-              <div className="space-y-4 mb-6 max-h-96 overflow-y-auto">
-                <div className="flex justify-start">
-                  <div className="max-w-xs lg:max-w-md px-4 py-2 rounded-lg bg-gray-100 text-gray-900">
-                    <p className="text-sm">{selectedConversation.message}</p>
-                    <p className="text-xs mt-1 text-gray-500">
-                      {new Date(selectedConversation.createdAt).toLocaleString()}
+              {/* Ticket Description */}
+              <div className="mb-6">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Description:</h4>
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm text-gray-900 whitespace-pre-wrap">{selectedConversation.description}</p>
+                  <p className="text-xs text-gray-500 mt-3">
+                    Created: {new Date(selectedConversation.createdAt).toLocaleString()}
+                  </p>
+                  {selectedConversation.category && (
+                    <p className="text-xs text-gray-500">
+                      Category: {selectedConversation.category}
                     </p>
-                  </div>
+                  )}
                 </div>
               </div>
 
-              {/* Reply Form */}
-              <div className="border-t border-gray-200 pt-4">
-                <div className="flex space-x-2">
-                  <input
-                    type="text"
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    placeholder="Type your message..."
-                    className="flex-1 input-field"
-                    onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                  />
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={!newMessage.trim()}
-                    className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <Send className="h-4 w-4" />
-                  </button>
-                </div>
+              {/* Action Buttons */}
+              <div className="border-t border-gray-200 pt-4 flex space-x-2">
+                <button className="btn-secondary flex-1">
+                  Update Status
+                </button>
+                <button className="btn-primary flex-1">
+                  <Reply className="h-4 w-4 mr-2 inline" />
+                  Reply via Email
+                </button>
               </div>
             </div>
           ) : (
             <div className="card">
               <div className="text-center py-12">
                 <MessageSquare className="h-16 w-16 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a conversation</h3>
-                <p className="text-gray-600">Choose a conversation from the list to view messages and reply.</p>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Select a ticket</h3>
+                <p className="text-gray-600">Choose a support ticket from the list to view details.</p>
               </div>
             </div>
           )}

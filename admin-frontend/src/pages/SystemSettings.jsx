@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import api from '../services/apiService'
 import toast from 'react-hot-toast'
 import { 
@@ -13,12 +13,24 @@ import {
   Users,
   Server,
   Shield,
-  Bell
+  Bell,
+  X
 } from 'lucide-react'
 
 const SystemSettings = () => {
   const [isRefreshing, setIsRefreshing] = useState(false)
-  const [isSaving, setIsSaving] = useState(false)
+  const [showPlanModal, setShowPlanModal] = useState(false)
+  const [planModalType, setPlanModalType] = useState(null) // 'subscription' or 'development'
+  const [editingPlan, setEditingPlan] = useState(null)
+  const [planFormData, setPlanFormData] = useState({
+    name: '',
+    description: '',
+    price: '',
+    billingCycle: 'monthly',
+    features: ''
+  })
+
+  const queryClient = useQueryClient()
 
   // Fetch system settings
   const { data: settings, isLoading, error, refetch } = useQuery({
@@ -28,6 +40,62 @@ const SystemSettings = () => {
       return response.data
     },
     refetchInterval: 60000, // Refetch every minute
+  })
+
+  // Create/Update Subscription Plan
+  const subscriptionPlanMutation = useMutation({
+    mutationFn: async (planData) => {
+      if (editingPlan) {
+        return await api.put(`/admin/subscription-plans/${editingPlan.id}`, planData)
+      } else {
+        return await api.post('/admin/subscription-plans', planData)
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-system-settings'])
+      toast.success(editingPlan ? 'Subscription plan updated!' : 'Subscription plan created!')
+      closePlanModal()
+    },
+    onError: () => {
+      toast.error('Failed to save subscription plan')
+    }
+  })
+
+  // Create/Update Development Plan
+  const developmentPlanMutation = useMutation({
+    mutationFn: async (planData) => {
+      if (editingPlan) {
+        return await api.put(`/admin/development-plans/${editingPlan.id}`, planData)
+      } else {
+        return await api.post('/admin/development-plans', planData)
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-system-settings'])
+      toast.success(editingPlan ? 'Development plan updated!' : 'Development plan created!')
+      closePlanModal()
+    },
+    onError: () => {
+      toast.error('Failed to save development plan')
+    }
+  })
+
+  // Delete Plan
+  const deletePlanMutation = useMutation({
+    mutationFn: async ({ id, type }) => {
+      if (type === 'subscription') {
+        return await api.delete(`/admin/subscription-plans/${id}`)
+      } else {
+        return await api.delete(`/admin/development-plans/${id}`)
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries(['admin-system-settings'])
+      toast.success('Plan deleted successfully!')
+    },
+    onError: () => {
+      toast.error('Failed to delete plan')
+    }
   })
 
   const handleRefresh = async () => {
@@ -42,15 +110,63 @@ const SystemSettings = () => {
     }
   }
 
-  const handleSave = async (section) => {
-    setIsSaving(true)
-    try {
-      // In real app, save settings to backend
-      toast.success(`${section} settings saved successfully!`)
-    } catch (error) {
-      toast.error(`Failed to save ${section} settings`)
-    } finally {
-      setIsSaving(false)
+  const openPlanModal = (type, plan = null) => {
+    setPlanModalType(type)
+    setEditingPlan(plan)
+    if (plan) {
+      setPlanFormData({
+        name: plan.name,
+        description: plan.description,
+        price: plan.price,
+        billingCycle: plan.billingCycle || 'monthly',
+        features: typeof plan.features === 'object' ? JSON.stringify(plan.features, null, 2) : plan.features
+      })
+    } else {
+      setPlanFormData({
+        name: '',
+        description: '',
+        price: '',
+        billingCycle: 'monthly',
+        features: ''
+      })
+    }
+    setShowPlanModal(true)
+  }
+
+  const closePlanModal = () => {
+    setShowPlanModal(false)
+    setPlanModalType(null)
+    setEditingPlan(null)
+    setPlanFormData({
+      name: '',
+      description: '',
+      price: '',
+      billingCycle: 'monthly',
+      features: ''
+    })
+  }
+
+  const handlePlanSubmit = (e) => {
+    e.preventDefault()
+    
+    const planData = {
+      name: planFormData.name,
+      description: planFormData.description,
+      price: parseInt(planFormData.price),
+      billingCycle: planFormData.billingCycle,
+      features: planFormData.features ? JSON.parse(planFormData.features) : {}
+    }
+
+    if (planModalType === 'subscription') {
+      subscriptionPlanMutation.mutate(planData)
+    } else {
+      developmentPlanMutation.mutate(planData)
+    }
+  }
+
+  const handleDeletePlan = (id, type) => {
+    if (window.confirm('Are you sure you want to delete this plan?')) {
+      deletePlanMutation.mutate({ id, type })
     }
   }
 
@@ -104,39 +220,42 @@ const SystemSettings = () => {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Development Plans</h3>
-            <button className="btn-primary text-sm">
+            <button 
+              onClick={() => openPlanModal('development')}
+              className="btn-primary text-sm"
+            >
               <Plus className="h-4 w-4 mr-1" />
               Add Plan
             </button>
           </div>
           <div className="space-y-3">
-            {(settings?.developmentPlans || []).map((plan) => (
-              <div key={plan.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900">{plan.name}</h4>
-                  <p className="text-xs text-gray-500">{plan.description}</p>
-                  <p className="text-xs text-gray-600">NPR {plan.price.toLocaleString()}</p>
+            {(settings?.developmentPlans || []).length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">No development plans yet</p>
+            ) : (
+              (settings?.developmentPlans || []).map((plan) => (
+                <div key={plan.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900">{plan.name}</h4>
+                    <p className="text-xs text-gray-500">{plan.description}</p>
+                    <p className="text-xs text-gray-600">NPR {plan.price.toLocaleString()}</p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => openPlanModal('development', plan)}
+                      className="text-blue-600 hover:text-blue-900"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleDeletePlan(plan.id, 'development')}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex space-x-2">
-                  <button className="text-blue-600 hover:text-blue-900">
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button className="text-red-600 hover:text-red-900">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <button
-              onClick={() => handleSave('Development Plans')}
-              disabled={isSaving}
-              className="btn-primary"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
+              ))
+            )}
           </div>
         </div>
 
@@ -144,39 +263,42 @@ const SystemSettings = () => {
         <div className="card">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-lg font-semibold text-gray-900">Subscription Plans</h3>
-            <button className="btn-primary text-sm">
+            <button 
+              onClick={() => openPlanModal('subscription')}
+              className="btn-primary text-sm"
+            >
               <Plus className="h-4 w-4 mr-1" />
               Add Plan
             </button>
           </div>
           <div className="space-y-3">
-            {(settings?.subscriptionPlans || []).map((plan) => (
-              <div key={plan.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <div>
-                  <h4 className="text-sm font-medium text-gray-900">{plan.name}</h4>
-                  <p className="text-xs text-gray-500">{plan.description}</p>
-                  <p className="text-xs text-gray-600">NPR {plan.price.toLocaleString()}/month</p>
+            {(settings?.subscriptionPlans || []).length === 0 ? (
+              <p className="text-sm text-gray-500 text-center py-4">No subscription plans yet</p>
+            ) : (
+              (settings?.subscriptionPlans || []).map((plan) => (
+                <div key={plan.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-900">{plan.name}</h4>
+                    <p className="text-xs text-gray-500">{plan.description}</p>
+                    <p className="text-xs text-gray-600">NPR {plan.price.toLocaleString()}/{plan.billingCycle}</p>
+                  </div>
+                  <div className="flex space-x-2">
+                    <button 
+                      onClick={() => openPlanModal('subscription', plan)}
+                      className="text-blue-600 hover:text-blue-900"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </button>
+                    <button 
+                      onClick={() => handleDeletePlan(plan.id, 'subscription')}
+                      className="text-red-600 hover:text-red-900"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
-                <div className="flex space-x-2">
-                  <button className="text-blue-600 hover:text-blue-900">
-                    <Edit className="h-4 w-4" />
-                  </button>
-                  <button className="text-red-600 hover:text-red-900">
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <button
-              onClick={() => handleSave('Subscription Plans')}
-              disabled={isSaving}
-              className="btn-primary"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
+              ))
+            )}
           </div>
         </div>
       </div>
@@ -218,16 +340,6 @@ const SystemSettings = () => {
               />
             </div>
           </div>
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <button
-              onClick={() => handleSave('General Settings')}
-              disabled={isSaving}
-              className="btn-primary"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
         </div>
 
         {/* Payment Settings */}
@@ -265,16 +377,6 @@ const SystemSettings = () => {
               />
             </div>
           </div>
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <button
-              onClick={() => handleSave('Payment Settings')}
-              disabled={isSaving}
-              className="btn-primary"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
-          </div>
         </div>
 
         {/* Security Settings */}
@@ -311,16 +413,6 @@ const SystemSettings = () => {
                 <option value="strong">Strong (8+ chars, numbers, symbols)</option>
               </select>
             </div>
-          </div>
-          <div className="mt-4 pt-4 border-t border-gray-200">
-            <button
-              onClick={() => handleSave('Security Settings')}
-              disabled={isSaving}
-              className="btn-primary"
-            >
-              <Save className="h-4 w-4 mr-2" />
-              {isSaving ? 'Saving...' : 'Save Changes'}
-            </button>
           </div>
         </div>
       </div>
@@ -367,6 +459,121 @@ const SystemSettings = () => {
           </div>
         </div>
       </div>
+
+      {/* Plan Modal */}
+      {showPlanModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-semibold text-gray-900">
+                {editingPlan ? 'Edit' : 'Add'} {planModalType === 'subscription' ? 'Subscription' : 'Development'} Plan
+              </h2>
+              <button
+                onClick={closePlanModal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handlePlanSubmit} className="p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Plan Name *
+                </label>
+                <input
+                  type="text"
+                  value={planFormData.name}
+                  onChange={(e) => setPlanFormData({ ...planFormData, name: e.target.value })}
+                  className="input-field"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Description *
+                </label>
+                <textarea
+                  value={planFormData.description}
+                  onChange={(e) => setPlanFormData({ ...planFormData, description: e.target.value })}
+                  className="input-field"
+                  rows="3"
+                  required
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Price (NPR) *
+                </label>
+                <input
+                  type="number"
+                  value={planFormData.price}
+                  onChange={(e) => setPlanFormData({ ...planFormData, price: e.target.value })}
+                  className="input-field"
+                  required
+                  min="0"
+                />
+              </div>
+
+              {planModalType === 'subscription' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Billing Cycle
+                  </label>
+                  <select
+                    value={planFormData.billingCycle}
+                    onChange={(e) => setPlanFormData({ ...planFormData, billingCycle: e.target.value })}
+                    className="input-field"
+                  >
+                    <option value="monthly">Monthly</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="yearly">Yearly</option>
+                  </select>
+                </div>
+              )}
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Features (JSON format)
+                </label>
+                <textarea
+                  value={planFormData.features}
+                  onChange={(e) => setPlanFormData({ ...planFormData, features: e.target.value })}
+                  className="input-field font-mono text-sm"
+                  rows="6"
+                  placeholder='{"feature1": "value1", "feature2": "value2"}'
+                />
+                <p className="mt-1 text-xs text-gray-500">
+                  Enter features in JSON format. Leave empty for no features.
+                </p>
+              </div>
+
+              <div className="flex justify-end space-x-3 pt-4">
+                <button
+                  type="button"
+                  onClick={closePlanModal}
+                  className="btn-secondary"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn-primary"
+                  disabled={subscriptionPlanMutation.isLoading || developmentPlanMutation.isLoading}
+                >
+                  {subscriptionPlanMutation.isLoading || developmentPlanMutation.isLoading ? (
+                    'Saving...'
+                  ) : (
+                    editingPlan ? 'Update Plan' : 'Create Plan'
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

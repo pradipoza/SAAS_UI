@@ -212,3 +212,271 @@ Potential improvements for future iterations:
 - All timestamps are converted to relative time for better UX
 - The message bubble component is theme-aware and responsive
 
+---
+
+# System Settings Plan Management
+
+## Overview
+Fixed the non-functional plan management features in the System Settings page of the admin frontend. The "Add Plan" buttons and "Save Changes" functionality now work properly with full backend API integration.
+
+## Problem Statement
+
+In the System Settings page:
+1. **"Add Plan" buttons** for both Development and Subscription plans had no onClick handlers
+2. **"Save Changes" button** showed a success message without hitting any API
+3. **No backend endpoints** existed for managing plans
+4. **Missing DevelopmentPlan model** in the database schema
+
+## Changes Made
+
+### 1. Database Schema (`backend/prisma/schema.prisma`)
+
+#### Added DevelopmentPlan Model:
+```prisma
+model DevelopmentPlan {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  price       Int
+  currency    String   @default("NPR")
+  features    Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("development_plans")
+}
+```
+
+#### Created Migration:
+- File: `backend/prisma/migrations/20251022000000_add_development_plans/migration.sql`
+- Creates the development_plans table if it doesn't exist
+
+### 2. Backend Controller (`backend/src/controllers/adminController.js`)
+
+#### Updated getSystemSettings:
+- Now fetches both subscription and development plans from database
+- Returns plans in the response along with other system settings
+
+#### Added Plan Management Endpoints:
+
+**Subscription Plans:**
+- `createSubscriptionPlan()` - Creates new subscription plan
+- `updateSubscriptionPlan()` - Updates existing subscription plan  
+- `deleteSubscriptionPlan()` - Soft deletes subscription plan (marks as inactive)
+
+**Development Plans:**
+- `createDevelopmentPlan()` - Creates new development plan
+- `updateDevelopmentPlan()` - Updates existing development plan
+- `deleteDevelopmentPlan()` - Soft deletes development plan (marks as inactive)
+
+### 3. Backend Routes (`backend/src/routes/admin.js`)
+
+Added new routes for plan management:
+
+```javascript
+// Subscription Plans
+router.post('/subscription-plans', createSubscriptionPlan)
+router.put('/subscription-plans/:id', updateSubscriptionPlan)
+router.delete('/subscription-plans/:id', deleteSubscriptionPlan)
+
+// Development Plans
+router.post('/development-plans', createDevelopmentPlan)
+router.put('/development-plans/:id', updateDevelopmentPlan)
+router.delete('/development-plans/:id', deleteDevelopmentPlan)
+```
+
+### 4. Frontend Updates (`admin-frontend/src/pages/SystemSettings.jsx`)
+
+#### Added State Management:
+- `showPlanModal` - Controls modal visibility
+- `planModalType` - Tracks whether editing subscription or development plan
+- `editingPlan` - Stores plan being edited (null for new plans)
+- `planFormData` - Manages form input state
+
+#### Added Mutations (React Query):
+- `subscriptionPlanMutation` - Handles create/update of subscription plans
+- `developmentPlanMutation` - Handles create/update of development plans
+- `deletePlanMutation` - Handles deletion of both plan types
+
+#### Enhanced Plan Cards:
+- **Add Plan Button**: Now opens modal with correct plan type
+- **Edit Button**: Opens modal with pre-filled plan data
+- **Delete Button**: Confirms deletion and calls API
+- **Empty State**: Shows message when no plans exist
+- **Proper Display**: Shows price with currency and billing cycle
+
+#### Added Plan Modal:
+A comprehensive modal for creating/editing plans with:
+- **Dynamic Title**: Shows correct plan type and action (Add/Edit)
+- **Form Fields**:
+  - Plan Name (required)
+  - Description (required)
+  - Price in NPR (required)
+  - Billing Cycle (for subscription plans only)
+  - Features in JSON format (optional)
+- **Validation**: Required fields and JSON validation
+- **Loading States**: Disabled submit button during API calls
+- **Error Handling**: Shows toast messages for success/failure
+
+#### Removed Placeholder Functionality:
+- Removed non-functional "Save Changes" buttons from General Settings, Payment Settings, and Security Settings
+- These sections now display settings without fake save buttons
+
+## Technical Details
+
+### API Endpoints
+
+**GET** `/admin/system-settings`
+- Returns system settings including subscription and development plans
+
+**POST** `/admin/subscription-plans`
+- Creates new subscription plan
+- Body: `{ name, description, price, billingCycle, features }`
+
+**PUT** `/admin/subscription-plans/:id`
+- Updates existing subscription plan
+- Body: `{ name?, description?, price?, billingCycle?, features?, isActive? }`
+
+**DELETE** `/admin/subscription-plans/:id`
+- Soft deletes subscription plan (sets isActive to false)
+
+**POST** `/admin/development-plans`
+- Creates new development plan
+- Body: `{ name, description, price, features }`
+
+**PUT** `/admin/development-plans/:id`
+- Updates existing development plan
+- Body: `{ name?, description?, price?, features?, isActive? }`
+
+**DELETE** `/admin/development-plans/:id`
+- Soft deletes development plan (sets isActive to false)
+
+### Plan Data Structure
+
+**Subscription Plan:**
+```javascript
+{
+  id: "cuid...",
+  name: "Basic Plan",
+  description: "Perfect for small businesses",
+  price: 5000,
+  currency: "NPR",
+  billingCycle: "monthly",
+  features: {
+    "messages": 1000,
+    "channels": 2,
+    "support": "Email"
+  },
+  isActive: true,
+  createdAt: "2025-01-15T10:30:00Z",
+  updatedAt: "2025-01-15T10:30:00Z"
+}
+```
+
+**Development Plan:**
+```javascript
+{
+  id: "cuid...",
+  name: "Custom Chatbot",
+  description: "Full chatbot development service",
+  price: 50000,
+  currency: "NPR",
+  features: {
+    "channels": "unlimited",
+    "customization": "full",
+    "support": "24/7"
+  },
+  isActive: true,
+  createdAt: "2025-01-15T10:30:00Z",
+  updatedAt: "2025-01-15T10:30:00Z"
+}
+```
+
+## Benefits
+
+1. **Functional Plan Management**: Admins can now create, edit, and delete plans
+2. **Database Integration**: All changes are persisted to the database
+3. **Real-time Updates**: UI refreshes automatically after changes
+4. **User Feedback**: Toast notifications for all actions
+5. **Data Validation**: Form validation prevents invalid data
+6. **Soft Deletes**: Plans are marked inactive instead of hard deleted
+7. **Flexible Features**: JSON format allows for dynamic feature sets
+8. **Professional UI**: Modal-based editing with clean design
+
+## Usage
+
+### Creating a New Plan
+
+1. Navigate to System Settings page
+2. Click "Add Plan" button for either Development or Subscription plans
+3. Fill in the required fields:
+   - Plan Name
+   - Description
+   - Price (in NPR)
+   - Billing Cycle (subscription plans only)
+   - Features (optional, JSON format)
+4. Click "Create Plan"
+5. Plan appears in the list immediately
+
+### Editing an Existing Plan
+
+1. Find the plan in the list
+2. Click the Edit icon (pencil)
+3. Modify fields in the modal
+4. Click "Update Plan"
+5. Changes are reflected immediately
+
+### Deleting a Plan
+
+1. Find the plan in the list
+2. Click the Delete icon (trash)
+3. Confirm deletion in the browser prompt
+4. Plan is removed from the list (soft deleted in database)
+
+### Features JSON Format
+
+Features can be structured as key-value pairs:
+
+```json
+{
+  "messages": "1000/month",
+  "channels": ["WhatsApp", "Facebook"],
+  "storage": "5GB",
+  "support": "Email only",
+  "customization": false
+}
+```
+
+The exact structure is flexible and can be customized based on business needs.
+
+## Future Enhancements
+
+1. **Plan Templates**: Pre-built templates for common plan types
+2. **Feature Builder**: Visual interface for adding features instead of JSON
+3. **Plan Comparison**: Side-by-side comparison view for plans
+4. **Usage Analytics**: Track which plans are most popular
+5. **Plan Versioning**: Keep history of plan changes
+6. **Bulk Operations**: Edit multiple plans at once
+7. **Plan Activation**: Easily enable/disable plans without deletion
+8. **Pricing Calculator**: Help admins calculate optimal pricing
+
+## Testing Recommendations
+
+1. **CRUD Operations**: Test create, read, update, delete for both plan types
+2. **Validation**: Test with missing required fields
+3. **JSON Validation**: Test with malformed JSON in features field
+4. **Concurrent Edits**: Test when multiple admins edit simultaneously
+5. **Soft Delete**: Verify deleted plans are not shown but exist in database
+6. **Error Handling**: Test API failures and network issues
+7. **Permission Testing**: Ensure only admins can manage plans
+
+## Notes
+
+- All plan operations require admin authentication
+- Plans are soft-deleted (isActive flag) to preserve historical data
+- Features field accepts any valid JSON structure
+- Price is stored in smallest currency unit (paisa for NPR)
+- Billing cycle options: monthly, quarterly, yearly
+- Query cache is invalidated after mutations to ensure fresh data
+

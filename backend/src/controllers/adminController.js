@@ -463,7 +463,31 @@ export const getPayments = async (req, res) => {
 // Admin System Settings Controller
 export const getSystemSettings = async (req, res) => {
   try {
-    // This would typically fetch from a settings table
+    // Fetch subscription and development plans (with fallback if model doesn't exist)
+    let subscriptionPlans = []
+    let developmentPlans = []
+
+    try {
+      subscriptionPlans = await prisma.subscriptionPlan.findMany({
+        where: { isActive: true },
+        orderBy: { createdAt: 'desc' }
+      })
+    } catch (error) {
+      console.warn('Could not fetch subscription plans:', error.message)
+    }
+
+    try {
+      // Check if developmentPlan model exists
+      if (prisma.developmentPlan) {
+        developmentPlans = await prisma.developmentPlan.findMany({
+          where: { isActive: true },
+          orderBy: { createdAt: 'desc' }
+        })
+      }
+    } catch (error) {
+      console.warn('Could not fetch development plans:', error.message)
+    }
+
     const settings = {
       systemName: 'SAAS Chatbot Platform',
       version: '1.0.0',
@@ -475,7 +499,9 @@ export const getSystemSettings = async (req, res) => {
         smsNotifications: false,
         analytics: true,
         customBranding: true
-      }
+      },
+      subscriptionPlans,
+      developmentPlans
     }
 
     res.json(settings)
@@ -496,7 +522,7 @@ export const getCustomerService = async (req, res) => {
       where.status = status
     }
 
-    const [tickets, total] = await Promise.all([
+    const [tickets, total, openTickets, inProgressTickets, resolvedTickets, closedTickets] = await Promise.all([
       prisma.supportTicket.findMany({
         where,
         skip,
@@ -513,11 +539,20 @@ export const getCustomerService = async (req, res) => {
           }
         }
       }),
-      prisma.supportTicket.count({ where })
+      prisma.supportTicket.count({ where }),
+      prisma.supportTicket.count({ where: { status: 'OPEN' } }),
+      prisma.supportTicket.count({ where: { status: 'IN_PROGRESS' } }),
+      prisma.supportTicket.count({ where: { status: 'RESOLVED' } }),
+      prisma.supportTicket.count({ where: { status: 'CLOSED' } })
     ])
 
     res.json({
       tickets,
+      openTickets,
+      inProgressTickets,
+      resolvedTickets,
+      closedTickets,
+      totalConversations: total,
       pagination: {
         page: Number(page),
         limit: Number(limit),
@@ -582,6 +617,13 @@ export const getAdminMessages = async (req, res) => {
     const adminId = req.user.userId
     const { page = 1, limit = 20, clientId } = req.query
 
+    console.log('📥 Admin fetching messages:', {
+      adminId,
+      page,
+      limit,
+      clientId
+    })
+
     const where = {
       OR: [
         { senderId: adminId },
@@ -622,6 +664,12 @@ export const getAdminMessages = async (req, res) => {
     })
 
     const total = await prisma.adminClientMessage.count({ where })
+
+    console.log('✅ Admin messages retrieved:', {
+      count: messages.length,
+      total,
+      messageIds: messages.map(m => m.id)
+    })
 
     res.json({
       messages,
@@ -675,5 +723,149 @@ export const getUnreadMessageCount = async (req, res) => {
   } catch (error) {
     console.error('Get unread count error:', error)
     res.status(500).json({ error: 'Failed to get unread count' })
+  }
+}
+
+// Plan Management Controllers
+
+// Create Subscription Plan
+export const createSubscriptionPlan = async (req, res) => {
+  try {
+    const { name, description, price, billingCycle, features } = req.body
+
+    const plan = await prisma.subscriptionPlan.create({
+      data: {
+        name,
+        description,
+        price: parseInt(price),
+        billingCycle: billingCycle || 'monthly',
+        features: features || {},
+        isActive: true
+      }
+    })
+
+    res.json({ success: true, plan })
+  } catch (error) {
+    console.error('Create subscription plan error:', error)
+    res.status(500).json({ error: 'Failed to create subscription plan' })
+  }
+}
+
+// Update Subscription Plan
+export const updateSubscriptionPlan = async (req, res) => {
+  try {
+    const { id } = req.params
+    const { name, description, price, billingCycle, features, isActive } = req.body
+
+    const plan = await prisma.subscriptionPlan.update({
+      where: { id },
+      data: {
+        ...(name && { name }),
+        ...(description && { description }),
+        ...(price && { price: parseInt(price) }),
+        ...(billingCycle && { billingCycle }),
+        ...(features && { features }),
+        ...(isActive !== undefined && { isActive })
+      }
+    })
+
+    res.json({ success: true, plan })
+  } catch (error) {
+    console.error('Update subscription plan error:', error)
+    res.status(500).json({ error: 'Failed to update subscription plan' })
+  }
+}
+
+// Delete Subscription Plan
+export const deleteSubscriptionPlan = async (req, res) => {
+  try {
+    const { id } = req.params
+
+    // Soft delete by marking as inactive
+    await prisma.subscriptionPlan.update({
+      where: { id },
+      data: { isActive: false }
+    })
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Delete subscription plan error:', error)
+    res.status(500).json({ error: 'Failed to delete subscription plan' })
+  }
+}
+
+// Create Development Plan
+export const createDevelopmentPlan = async (req, res) => {
+  try {
+    if (!prisma.developmentPlan) {
+      return res.status(503).json({ error: 'Development plans feature is not available. Please regenerate Prisma client.' })
+    }
+
+    const { name, description, price, features } = req.body
+
+    const plan = await prisma.developmentPlan.create({
+      data: {
+        name,
+        description,
+        price: parseInt(price),
+        features: features || {},
+        isActive: true
+      }
+    })
+
+    res.json({ success: true, plan })
+  } catch (error) {
+    console.error('Create development plan error:', error)
+    res.status(500).json({ error: 'Failed to create development plan' })
+  }
+}
+
+// Update Development Plan
+export const updateDevelopmentPlan = async (req, res) => {
+  try {
+    if (!prisma.developmentPlan) {
+      return res.status(503).json({ error: 'Development plans feature is not available. Please regenerate Prisma client.' })
+    }
+
+    const { id } = req.params
+    const { name, description, price, features, isActive } = req.body
+
+    const plan = await prisma.developmentPlan.update({
+      where: { id },
+      data: {
+        ...(name && { name }),
+        ...(description && { description }),
+        ...(price && { price: parseInt(price) }),
+        ...(features && { features }),
+        ...(isActive !== undefined && { isActive })
+      }
+    })
+
+    res.json({ success: true, plan })
+  } catch (error) {
+    console.error('Update development plan error:', error)
+    res.status(500).json({ error: 'Failed to update development plan' })
+  }
+}
+
+// Delete Development Plan
+export const deleteDevelopmentPlan = async (req, res) => {
+  try {
+    if (!prisma.developmentPlan) {
+      return res.status(503).json({ error: 'Development plans feature is not available. Please regenerate Prisma client.' })
+    }
+
+    const { id } = req.params
+
+    // Soft delete by marking as inactive
+    await prisma.developmentPlan.update({
+      where: { id },
+      data: { isActive: false }
+    })
+
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Delete development plan error:', error)
+    res.status(500).json({ error: 'Failed to delete development plan' })
   }
 }

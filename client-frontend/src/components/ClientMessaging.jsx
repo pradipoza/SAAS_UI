@@ -20,10 +20,15 @@ const ClientMessaging = () => {
   const loadMessages = async () => {
     try {
       setLoading(true)
+      console.log('📥 Loading client messages...')
       const response = await apiService.getMessages()
+      console.log('📦 Response:', response)
+      console.log('📧 Messages array:', response.messages)
+      console.log('📊 Message count:', response.messages?.length || 0)
       setMessages(response.messages || [])
+      console.log('✅ Messages set to state')
     } catch (error) {
-      console.error('Failed to load messages:', error)
+      console.error('❌ Failed to load messages:', error)
     } finally {
       setLoading(false)
     }

@@ -51,6 +51,20 @@ model SubscriptionPlan {
   @@map("subscription_plans")
 }
 
+model DevelopmentPlan {
+  id          String   @id @default(cuid())
+  name        String
+  description String
+  price       Int
+  currency    String   @default("NPR")
+  features    Json
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("development_plans")
+}
+
 model Subscription {
   id              String             @id @default(cuid())
   userId          String

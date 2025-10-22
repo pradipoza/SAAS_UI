@@ -156,6 +156,8 @@ export const getMessages = async (req, res) => {
     const userId = req.user.userId
     const { channel = 'all', status = 'all', search = '' } = req.query
 
+    console.log('📱 GET /api/client/conversations - Client ID:', userId)
+    console.log('📱 Query params:', { channel, status, search })
 
     // Determine which channel tables to query
     let channelTables = []
@@ -265,6 +267,9 @@ export const getMessages = async (req, res) => {
       .sort((a, b) => new Date(b.lastMessageTime) - new Date(a.lastMessageTime))
 
     const selectedConversation = conversations[0] || null
+
+    console.log('✅ Found', conversations.length, 'conversations with', allMessages.length, 'total messages')
+    console.log('📤 Sending response with', conversations.length, 'conversations')
 
     res.json({
       conversations: conversations.map(conv => ({
@@ -1140,6 +1145,8 @@ export const getClientMessages = async (req, res) => {
     const clientId = req.user.userId
     const { page = 1, limit = 20 } = req.query
 
+    console.log('📥 GET /api/client/messages - Client ID:', clientId)
+
     const messages = await prisma.adminClientMessage.findMany({
       where: {
         OR: [
@@ -1179,7 +1186,10 @@ export const getClientMessages = async (req, res) => {
       }
     })
 
-    res.json({
+    console.log('✅ Found', messages.length, 'messages for client')
+    console.log('📧 Message IDs:', messages.map(m => m.id))
+
+    const responseData = {
       messages,
       pagination: {
         page: parseInt(page),
@@ -1187,9 +1197,12 @@ export const getClientMessages = async (req, res) => {
         total,
         pages: Math.ceil(total / limit)
       }
-    })
+    }
+
+    console.log('📤 Sending response with', responseData.messages.length, 'messages')
+    res.json(responseData)
   } catch (error) {
-    console.error('Get client messages error:', error)
+    console.error('❌ Get client messages error:', error)
     res.status(500).json({ error: 'Failed to fetch messages' })
   }
 }
@@ -1199,14 +1212,24 @@ export const sendMessageToAdmin = async (req, res) => {
     const { message, subject, priority = 'NORMAL' } = req.body
     const clientId = req.user.userId
 
+    console.log('📤 Client sending message to admin:', {
+      clientId,
+      subject,
+      message,
+      priority
+    })
+
     // Get admin user
     const admin = await prisma.user.findFirst({
       where: { role: 'ADMIN' }
     })
 
     if (!admin) {
+      console.error('❌ Admin not found in database!')
       return res.status(404).json({ error: 'Admin not found' })
     }
+
+    console.log('✅ Found admin:', { adminId: admin.id, adminEmail: admin.email })
 
     // Create message record
     const newMessage = await prisma.adminClientMessage.create({
@@ -1227,6 +1250,12 @@ export const sendMessageToAdmin = async (req, res) => {
           }
         }
       }
+    })
+
+    console.log('✅ Message created successfully:', {
+      messageId: newMessage.id,
+      senderId: newMessage.senderId,
+      receiverId: newMessage.receiverId
     })
 
     // Create notification for admin

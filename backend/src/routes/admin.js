@@ -11,7 +11,13 @@ import {
   sendMessage,
   getAdminMessages,
   markMessageAsRead,
-  getUnreadMessageCount
+  getUnreadMessageCount,
+  createSubscriptionPlan,
+  updateSubscriptionPlan,
+  deleteSubscriptionPlan,
+  createDevelopmentPlan,
+  updateDevelopmentPlan,
+  deleteDevelopmentPlan
 } from '../controllers/adminController.js'
 import { auth } from '../middleware/auth.js'
 import { requireAdmin } from '../middleware/roleCheck.js'
@@ -42,6 +48,15 @@ router.get('/payments', getPayments)
 
 // System Settings
 router.get('/system-settings', getSystemSettings)
+
+// Plan Management
+router.post('/subscription-plans', createSubscriptionPlan)
+router.put('/subscription-plans/:id', updateSubscriptionPlan)
+router.delete('/subscription-plans/:id', deleteSubscriptionPlan)
+
+router.post('/development-plans', createDevelopmentPlan)
+router.put('/development-plans/:id', updateDevelopmentPlan)
+router.delete('/development-plans/:id', deleteDevelopmentPlan)
 
 // Customer Service
 router.get('/customer-service', getCustomerService)

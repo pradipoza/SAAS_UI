@@ -1,7 +1,6 @@
 import express from 'express'
 import { 
   getClientDashboard,
-  getMessages,
   getClientAnalytics,
   getDocuments,
   uploadDocument,
@@ -11,6 +10,7 @@ import {
   getBotSettings,
   updateBotSettings,
   getNotifications,
+  getMessages,
   getClientMessages,
   sendMessageToAdmin,
   markClientMessageAsRead,
@@ -34,9 +34,6 @@ router.use(requireClient)
 // Dashboard
 router.get('/dashboard', getClientDashboard)
 
-// Messages
-router.get('/messages', getMessages)
-
 // Analytics
 router.get('/analytics', getClientAnalytics)
 
@@ -56,7 +53,10 @@ router.put('/bot-settings', updateBotSettings)
 // Notifications
 router.get('/notifications', getNotifications)
 
-// Client Messaging
+// Channel Messages (WhatsApp, Facebook, Instagram, Website, TikTok)
+router.get('/conversations', getMessages)  // For channel-specific messages
+
+// Client-Admin Messaging  
 router.get('/messages', getClientMessages)
 router.post('/messages/send', sendMessageToAdmin)
 router.put('/messages/:messageId/read', markClientMessageAsRead)
