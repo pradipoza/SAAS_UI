@@ -248,11 +248,22 @@ export const getUsers = async (req, res) => {
 // Admin Running Projects Controller
 export const getRunningProjects = async (req, res) => {
   try {
-    const { page = 1, limit = 10 } = req.query
+    const { page = 1, limit = 10, search = '' } = req.query
     const skip = (Number(page) - 1) * Number(limit)
 
+    const where = { role: 'CLIENT' }
+    
+    // Add search filter
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { company: { contains: search, mode: 'insensitive' } }
+      ]
+    }
+
     const projects = await prisma.user.findMany({
-      where: { role: 'CLIENT' },
+      where,
       skip,
       take: Number(limit),
       orderBy: { createdAt: 'desc' },
@@ -284,13 +295,19 @@ export const getRunningProjects = async (req, res) => {
         return {
           id: project.id,
           email: project.email,
-          name: project.name,
+          name: chatbot?.name || `${project.name}'s Chatbot`,
+          clientName: project.name,
           company: project.company,
           phone: project.phone,
           createdAt: project.createdAt,
           chatbotId: chatbot?.id,
-          chatbotName: chatbot?.name,
-          status: chatbot?.status,
+          status: chatbot?.status || 'INACTIVE',
+          phase: chatbot ? 'development' : 'planning',
+          progress: chatbot ? 50 : 0,
+          startDate: project.createdAt,
+          deadline: null,
+          budget: subscription?.plan?.price || 0,
+          teamSize: 1,
           planName: subscription?.plan?.name,
           planPrice: subscription?.plan?.price,
           paidAmount: payments.reduce((sum, payment) => sum + payment.amount, 0),
@@ -299,12 +316,24 @@ export const getRunningProjects = async (req, res) => {
       })
     )
 
+    // Apply status and phase filters
+    const { status, phase } = req.query
+    let filteredProjects = projectsWithData
+    
+    if (status) {
+      filteredProjects = filteredProjects.filter(p => p.status === status)
+    }
+    
+    if (phase) {
+      filteredProjects = filteredProjects.filter(p => p.phase === phase)
+    }
+
     res.json({
-      projects: projectsWithData,
+      projects: filteredProjects,
       pagination: {
         page: Number(page),
         limit: Number(limit),
-        total: projects.length
+        total: filteredProjects.length
       }
     })
   } catch (error) {
