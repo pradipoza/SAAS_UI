@@ -249,13 +249,13 @@ const RunningProjects = () => {
           <div key={project.id} className="card hover:shadow-lg transition-shadow duration-200">
             <div className="flex justify-between items-start mb-4">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">{project.name}</h3>
-                <p className="text-sm text-gray-600">{project.clientName}</p>
+                <h3 className="text-lg font-semibold text-gray-900">{project.name || 'Unnamed Project'}</h3>
+                <p className="text-sm text-gray-600">{project.clientName || 'Unknown Client'}</p>
               </div>
               <div className="flex items-center space-x-2">
                 {getStatusIcon(project.status)}
                 <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getStatusColor(project.status)}`}>
-                  {project.status.replace('_', ' ')}
+                  {(project.status || 'UNKNOWN').replace('_', ' ')}
                 </span>
               </div>
             </div>
