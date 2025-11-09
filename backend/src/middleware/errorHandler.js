@@ -5,6 +5,30 @@ export const errorHandler = (err, req, res, next) => {
   // Log error
   console.error(err)
 
+  // Vector-specific errors
+  if (err.message?.includes('vector table') || 
+      err.message?.includes('does not exist') || 
+      err.message?.includes('relation')) {
+    return res.status(500).json({
+      success: false,
+      error: 'Vector database not initialized',
+      detail: err.message,
+      code: 'VECTOR_DB_ERROR'
+    })
+  }
+
+  // OpenAI API key errors
+  if (err.message?.includes('OPENAI_API_KEY') || 
+      err.message?.includes('API key') ||
+      err.message?.includes('embedding')) {
+    return res.status(500).json({
+      success: false,
+      error: 'Embedding service not configured',
+      detail: err.message,
+      code: 'EMBEDDING_CONFIG_ERROR'
+    })
+  }
+
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {
     const message = 'Resource not found'

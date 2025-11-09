@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client'
+import { processDocument, deleteDocument as deleteDocumentService } from '../services/documentService.js'
 
 const prisma = new PrismaClient()
 
@@ -609,8 +610,17 @@ export const uploadDocument = async (req, res) => {
       }
     })
 
+    // Start processing document asynchronously (fire and forget)
+    processDocument(document.id, path, mimetype)
+      .then(() => {
+        console.log(`✅ Document ${document.id} processing completed successfully`)
+      })
+      .catch((err) => {
+        console.error(`❌ Document ${document.id} processing failed:`, err)
+      })
+
     res.json({
-      message: 'Document uploaded successfully',
+      message: 'Document uploaded successfully. Processing started.',
       document: {
         id: document.id,
         filename: document.filename,
@@ -686,14 +696,13 @@ export const deleteDocument = async (req, res) => {
       return
     }
 
-    await prisma.document.delete({
-      where: { id: documentId }
-    })
+    // Use service function which handles vector deletion
+    await deleteDocumentService(documentId)
 
-    res.json({ message: 'Document deleted successfully' })
+    res.json({ message: 'Document and associated vectors deleted successfully' })
   } catch (error) {
     console.error('Delete document error:', error)
-    res.status(500).json({ error: 'Failed to delete document' })
+    res.status(500).json({ error: 'Failed to delete document', detail: error.message })
   }
 }
 
